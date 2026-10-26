@@ -23,6 +23,7 @@ def test_other_detectors_unchanged():
 
 def test_whole_phone_number_is_redacted():
     from sightline.detect import redact
-    for text in ["call (415) 555-0132 now", "call 415-555-0132 now", "call +1 415 555 0132 now", "call 415.555.0132 now"]:
+    for text in ["call (415) 555-0132 now", "call (415)555-0132 now", "call 415-555-0132 now",
+                 "call +1 415 555 0132 now", "call 415.555.0132 now", "call +1 (415) 555-0132 now"]:
         out, _ = redact(text)
         assert out == "call [REDACTED:phone] now", (text, out)
