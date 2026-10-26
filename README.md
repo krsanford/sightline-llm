@@ -82,7 +82,9 @@ The fleet-grade path (a `NETransparentProxyProvider` system extension deployed b
   fingerprint, so you can tell keys apart without keeping them.
 - **Redacts before storing, and before forwarding.** Prompts and responses are stored only after redaction.
   `capture_bodies: metadata` stores no text at all. Bodies are purged after 7 days, metadata after 30.
-- **Per-install CA**, private key `0600`, trusted in the *login* keychain for SSL only. `uninstall` removes both.
+- **Per-install, name-constrained CA.** The certificate carries critical X.509 name constraints for the LLM API
+  domains only, so even a stolen key can't impersonate your bank. Private key `0600`, trusted in the *login*
+  keychain for SSL only. `uninstall` removes both.
 - **Local-only dashboard.** Bound to 127.0.0.1. Requests with an unexpected `Host` get 421 (DNS-rebinding
   defence), cross-origin writes are refused, a strict CSP forbids inline script, and every captured string is
   rendered as text. Prompts and responses are treated as attacker-controlled content.

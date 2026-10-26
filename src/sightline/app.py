@@ -11,6 +11,7 @@ import uvicorn
 from mitmproxy.options import Options
 from mitmproxy.tools.dump import DumpMaster
 
+from .ca import ensure_ca
 from .config import ALLOW_HOSTS_RE, Settings
 from .engine import Bus, SightlineAddon
 from .policy import Policy, write_default
@@ -35,6 +36,8 @@ def mitm_options(settings: Settings) -> dict:
 
 async def serve(settings: Settings) -> None:
     settings.ensure()
+    if ensure_ca(settings.certs_dir):
+        log.info("created name-constrained CA in %s", settings.certs_dir)
     store = Store(settings.db_path, capture_bodies=settings.capture_bodies)
     purged = store.purge(settings.body_retention_days, settings.metadata_retention_days)
     if any(purged):

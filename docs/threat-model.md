@@ -19,7 +19,7 @@ against, how, and the test that proves it.
 | # | Threat | Control | Test |
 |---|---|---|---|
 | T1 | Interception spreads beyond LLM traffic (banking, health, personal sites decrypted) | mitmproxy `allow_hosts` is an anchored allowlist of LLM API hosts; everything else is tunneled byte-for-byte. The PAC file routes only those hosts to the proxy | `tests/unit/test_config.py` (lookalike hosts such as `api.openai.com.evil.tld` are not decrypted) |
-| T2 | CA key theft | Generated per install, never shipped; key file `0600` inside a `0700` directory; trusted only in the *login* keychain with the SSL policy; `sightline uninstall` removes trust and deletes the key | `sightline doctor` reports key mode; uninstall path in `cli.py` |
+| T2 | CA key theft | Generated per install, never shipped, with a **critical X.509 NameConstraints extension** permitting only the LLM API domains: even someone holding the key cannot mint a certificate that validates for any other site. Key file `0600` in a `0700` directory; trusted only in the *login* keychain with the SSL policy; `sightline uninstall` removes trust and deletes the key | `tests/unit/test_ca.py` (certificates minted with the CA key for `example.com`, a bank, `accounts.google.com` are rejected; LLM hosts validate) |
 | T3 | Credentials leak into storage | Authorization / `x-api-key` / `x-goog-api-key` headers and `?key=` parameters are reduced to a 12-character SHA-256 fingerprint; the stored path masks `key=` | `tests/unit/test_engine.py::test_credentials_are_fingerprinted_never_stored` scans the raw database file |
 | T4 | Secrets and PII leak to the provider | Policy redacts secret and PII findings inside every JSON string value before the request is forwarded (or blocks, with `on_secret: block`) | `tests/unit/test_policy.py` |
 | T5 | Captured text becomes a long-lived corpus | Only redacted text is stored; `capture_bodies: metadata` stores none; bodies purged after 7 days, rows after 30; DB `0600`. If the detector is unavailable, text is withheld rather than stored raw | `store.purge`, `engine._store_text` |
@@ -39,8 +39,8 @@ against, how, and the test that proves it.
 - **Certificate-pinned or custom-root apps** cannot be decrypted. They are visible only via gateway mode.
 - **Encryption at rest** for the database (Keychain-held key) is on the roadmap; tonight relies on file
   permissions, redaction-before-store and retention.
-- **Name-constrained CA** (limiting the CA itself to LLM domains, so even a stolen key can't impersonate other
-  sites) is on the roadmap.
+- **Name-constraint enforcement varies by verifier.** It is proven here against OpenSSL-based clients (Python,
+  curl). Verify your fleet's other TLS stacks honor critical NameConstraints before relying on it.
 - **Dashboard authentication** (token cookie) arrives with the first state-changing endpoint; today every
   endpoint is read-only and protected by T6–T8.
 
