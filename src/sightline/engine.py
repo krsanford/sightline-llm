@@ -33,6 +33,8 @@ log = logging.getLogger("sightline.engine")
 
 AUTH_HEADERS = ("authorization", "x-api-key", "x-goog-api-key", "api-key")
 STREAM_TYPES = ("text/event-stream", "application/x-ndjson", "application/jsonl")
+# Not LLM usage: model lists, metadata and health checks that harnesses poll between turns.
+CONTROL_PATHS = ("/models", "/api/tags", "/api/show", "/api/version", "/api/ps", "/props", "/version")
 MAX_TEXT = 20_000
 
 
@@ -213,9 +215,9 @@ class SightlineAddon:
     # ------------------------------------------------------------------ bookkeeping
 
     def _finish(self, call: Call, req: ParsedRequest, resp: ParsedResponse, parsed: bool = True) -> None:
-        # Control-plane calls (model lists, /api/show, version checks) are not LLM usage. When a parser
-        # recognised the provider and nothing notable happened, keep them out of the traffic table.
-        if (parsed and call.endpoint in ("models", "other") and call.action == "allowed" and not call.error
+        # Control-plane calls (model lists, /api/show, version checks) are not LLM usage; keep them out of the
+        # traffic table unless something notable happened (blocked, error, non-2xx).
+        if ((call.path or "").split("?")[0].endswith(CONTROL_PATHS) and call.action == "allowed" and not call.error
                 and (call.status or 0) < 400):
             return
         call.model = resp.model or call.model
