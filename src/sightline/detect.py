@@ -82,8 +82,11 @@ _PHONE = re.compile(
     r"(?<!\d)(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)"
 )
 
-# US SSN, excluding the reserved 000, 666 and 9xx area numbers.
-_SSN = re.compile(r"(?<!\d)(?!000|666|9\d\d)\d{3}[-\s]?\d{2}[-\s]?\d{4}(?!\d)")
+# US SSN. A separator (``-`` or whitespace) is mandatory so bare 9-digit
+# numbers -- order ids, ticket numbers, dates -- are not mistaken for SSNs.
+# The reserved 000/666/9xx area numbers are excluded here; the ``00`` group and
+# ``0000`` serial are rejected in ``_passes_filters``.
+_SSN = re.compile(r"(?<!\d)(?!000|666|9\d\d)\d{3}(?:[-\s]\d{2}[-\s]\d{4})(?!\d)")
 
 # Credit card: 13-19 digits in groups separated by a single space or dash.
 _CC = re.compile(
@@ -133,7 +136,25 @@ def _passes_filters(kind: str, value: str) -> bool:
     if kind == "credit_card":
         digits = re.sub(r"[ \-]", "", value)
         return 13 <= len(digits) <= 19 and _luhn_ok(digits)
+    if kind == "ssn":
+        return _ssn_ok(value)
     return True
+
+
+def _ssn_ok(value: str) -> bool:
+    """Return True when ``value`` has a valid SSN group and serial.
+
+    The regex already enforces the separator shape and excludes the 000/666/9xx
+    area numbers; here we reject a ``00`` group number and a ``0000`` serial
+    number, which are not valid SSN components.
+    """
+    m = re.fullmatch(r"(\d{3})[-\s](\d{2})[-\s](\d{4})", value)
+    if not m:
+        return False
+    area, group, serial = m.group(1), m.group(2), m.group(3)
+    if group == "00" or serial == "0000":
+        return False
+    return area not in ("000", "666") and not area.startswith("9")
 
 
 # --------------------------------------------------------------------------- #
