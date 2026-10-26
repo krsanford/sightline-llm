@@ -25,6 +25,18 @@ providers from this company laptop, and what is it costing?"*
 | **Govern** | Block rules by provider, model or host, with reasons shown to the caller and in the UI |
 | **Observe** | Live traffic table, per-call detail (conversation, usage and cost, findings, request metadata), insights by model, app and hour |
 
+## Provider support
+
+Generated from what is merged and passing its acceptance tests (recorded wire fixtures, streams split at every byte):
+
+| Provider | Endpoints | Streaming usage | Cache / reasoning tokens |
+|---|---|---|---|
+| OpenAI (incl. Azure OpenAI) | Chat Completions, Responses, Embeddings, Models | final `usage` chunk (`stream_options.include_usage`) / `response.completed` | cached input, reasoning |
+| Anthropic | Messages | `message_start` + cumulative `message_delta` | cache read and write |
+| Google Gemini | `generateContent`, `streamGenerateContent` | last `usageMetadata` | cached content, thoughts |
+| Ollama | `/api/chat`, `/api/generate`, OpenAI-compatible `/v1` | final NDJSON object / usage chunk | prompt cache hits; shadow cost |
+| Mistral, Groq, xAI, DeepSeek, OpenRouter, Together, Cohere, Perplexity | recorded at host level (no usage yet) | | |
+
 ## Quick start
 
 ```bash
