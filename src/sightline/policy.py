@@ -54,11 +54,18 @@ class Decision:
     body: bytes | None = None                # rewritten body when action == "redacted"
 
 
+# Traffic to these providers never leaves the Mac, so rewriting it protects nothing and can break work
+# (observed: false-positive "phone numbers" in Unix timestamps corrupted a local coding agent's context).
+# Findings are still recorded; the request is forwarded unchanged.
+LOCAL_PROVIDERS = frozenset({"ollama"})
+
+
 @dataclass
 class Policy:
     categories: set[str] = field(default_factory=lambda: {"secret", "pii"})
     on_secret: str = "redact"
     blocks: list[dict] = field(default_factory=list)
+    local_providers: frozenset[str] = LOCAL_PROVIDERS
 
     @classmethod
     def load(cls, path: Path | None) -> Policy:
@@ -118,6 +125,9 @@ class Policy:
             return Decision()
         has_secret = any(f["category"] == "secret" for f in findings)
         summary = ", ".join(f"{f['count']}× {f['kind']}" for f in findings)
+        if provider in self.local_providers:
+            return Decision(action="allowed", reasons=[f"local model: observed, not redacted ({summary})"],
+                            findings=findings)
         if has_secret and self.on_secret == "block":
             return Decision(action="blocked", reasons=[f"secret in prompt ({summary})"], findings=findings)
         return Decision(action="redacted", reasons=[f"masked before forwarding: {summary}"], findings=findings,

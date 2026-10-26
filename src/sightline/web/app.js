@@ -59,6 +59,7 @@ function statusCell(c) {
   else if (c.status) out.push(el("span", { class: "badge ok" }, String(c.status)));
   const nFind = (c.findings || []).reduce((a, f) => a + (f.count || 1), 0);
   if (c.action === "redacted" && nFind) out.push(el("span", { class: "badge warn" }, `${nFind} redacted`));
+  else if (nFind) out.push(el("span", { class: "badge", title: "Detected but not redacted (local model; data stays on this Mac)" }, `${nFind} flagged`));
   if (c.usage_source === "none" && c.action !== "blocked" && !c.error && c.status < 400) out.push(el("span", { class: "badge", title: "No parser for this endpoint yet" }, "usage ?"));
   return out;
 }

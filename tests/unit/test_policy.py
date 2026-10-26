@@ -27,3 +27,11 @@ def test_block_on_secret_mode():
     body = json.dumps({"input": "AKIAIOSFODNN7EXAMPLE"}).encode()
     d = Policy(on_secret="block").evaluate("openai", "m", "api.openai.com", body)
     assert d.action == "blocked" and "secret" in d.reasons[0]
+
+
+def test_local_provider_is_observed_not_rewritten():
+    pytest.importorskip("sightline.detect")
+    body = json.dumps({"messages": [{"role": "user", "content": "key AKIAIOSFODNN7EXAMPLE"}]}).encode()
+    d = Policy().evaluate("ollama", "qwen3.8:27b", "127.0.0.1", body)
+    assert d.action == "allowed" and d.body is None and "local model" in d.reasons[0]
+    assert {f["kind"] for f in d.findings} == {"aws_access_key"}
