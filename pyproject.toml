@@ -1,5 +1,5 @@
 [project]
-name = "sightline"
+name = "sightline-llm"
 version = "0.1.0"
 description = "See every LLM call your Mac makes: which app, which model, what it cost, and what leaked."
 readme = "README.md"
@@ -34,8 +34,14 @@ testpaths = ["tests", "acceptance"]
 pythonpath = ["src"]
 
 [tool.ruff]
-line-length = 110
+line-length = 120
 target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "S"]
 ignore = ["S101"]
+[tool.ruff.lint.per-file-ignores]
+# fixed-argv calls to macOS system tools (security, networksetup, launchctl, curl/node canaries)
+"src/sightline/cli.py" = ["S603", "S607"]
+"src/sightline/macos.py" = ["S603", "S607"]
+"src/sightline/policy.py" = ["S105"]   # "on_secret" is a policy mode, not a password
+"tests/**" = ["S", "E501"]

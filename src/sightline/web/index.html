@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sightline</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M2 12c2.6-4.6 6-7 10-7s7.4 2.4 10 7c-2.6 4.6-6 7-10 7s-7.4-2.4-10-7z"/></svg>
+      <span>Sightline</span>
+    </div>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#/traffic" data-view="traffic">Traffic</a>
+      <a href="#/insights" data-view="insights">Insights</a>
+      <a href="#/setup" data-view="setup">Setup</a>
+    </nav>
+    <div class="rec" id="rec" title="Sightline is recording LLM API calls on this Mac">
+      <span class="dot"></span><span id="rec-label">Recording</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- TRAFFIC -->
+    <section class="view" id="view-traffic">
+      <div class="kpis" id="kpis">
+        <div class="kpi"><div class="k-label">Calls · 24h</div><div class="k-value" id="k-calls">—</div></div>
+        <div class="kpi"><div class="k-label">Tokens</div><div class="k-value" id="k-tokens">—</div><div class="k-sub" id="k-tokens-sub"></div></div>
+        <div class="kpi"><div class="k-label">Spend</div><div class="k-value" id="k-spend">—</div><div class="k-sub" id="k-shadow"></div></div>
+        <div class="kpi"><div class="k-label">Latency p50 / p95</div><div class="k-value" id="k-lat">—</div></div>
+        <div class="kpi"><div class="k-label">Redacted</div><div class="k-value" id="k-redacted">—</div></div>
+        <div class="kpi"><div class="k-label">Blocked</div><div class="k-value" id="k-blocked">—</div></div>
+      </div>
+
+      <div class="toolbar">
+        <div class="filters" id="filters" role="group" aria-label="Filter by provider"></div>
+        <label class="search"><input id="search" type="search" placeholder="Filter model, app, tag…" autocomplete="off"></label>
+        <button class="ghost" id="pause" type="button" aria-pressed="false">Pause</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="calls" id="calls">
+          <thead>
+            <tr>
+              <th class="c-time">Time</th>
+              <th class="c-prov">Provider</th>
+              <th>Model</th>
+              <th class="c-app">App</th>
+              <th class="num">In</th>
+              <th class="num">Out</th>
+              <th class="num">Cost</th>
+              <th class="num">TTFT</th>
+              <th class="num">Total</th>
+              <th class="c-status">Status</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty" hidden>
+          <h2>Nothing captured yet</h2>
+          <p>Sightline records calls to LLM APIs. Point something at it:</p>
+          <ol>
+            <li><b>Quickest</b> — base-URL mode, no certificate needed:
+              <pre><code id="empty-gateway"></code></pre></li>
+            <li><b>Any terminal</b> — route a shell through the proxy:
+              <pre><code>eval "$(sightline env)"</code></pre></li>
+            <li><b>See it with real data</b> — send a scripted set of requests:
+              <pre><code>sightline demo</code></pre></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- INSIGHTS -->
+    <section class="view" id="view-insights" hidden>
+      <div class="ins-head">
+        <h1>Insights</h1>
+        <div class="seg" id="window" role="group" aria-label="Time window">
+          <button type="button" data-w="1h">1h</button><button type="button" data-w="24h" class="on">24h</button><button type="button" data-w="7d">7d</button><button type="button" data-w="30d">30d</button>
+        </div>
+      </div>
+      <div class="grid2">
+        <figure class="card">
+          <figcaption>Spend over time <span class="hint">hosted + shadow (what local calls would have cost)</span></figcaption>
+          <div class="chart" id="chart-hour"></div>
+        </figure>
+        <figure class="card">
+          <figcaption>Top apps &amp; tags <span class="hint">by calls</span></figcaption>
+          <div id="chart-client" class="bars"></div>
+        </figure>
+      </div>
+      <figure class="card">
+        <figcaption>By model</figcaption>
+        <table class="plain" id="by-model">
+          <thead><tr><th>Provider</th><th>Model</th><th class="num">Calls</th><th class="num">Input</th><th class="num">Output</th><th class="num">Avg latency</th><th class="num">Spend</th><th class="num">Shadow</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </figure>
+      <figure class="card">
+        <figcaption>Sensitive data intercepted <span class="hint">masked before it left this Mac</span></figcaption>
+        <div id="findings" class="chips"></div>
+      </figure>
+    </section>
+
+    <!-- SETUP -->
+    <section class="view" id="view-setup" hidden>
+      <h1>Setup</h1>
+      <div class="grid2">
+        <div class="card">
+          <h3>Capture paths</h3>
+          <dl class="kv" id="paths"></dl>
+        </div>
+        <div class="card trust">
+          <h3>Trust panel</h3>
+          <dl class="kv" id="trust"></dl>
+          <h4>Never stored</h4>
+          <ul id="never"></ul>
+          <p class="fine">Sightline provides <b>visibility, not enforcement</b>: a determined user can bypass a local proxy. Use it to understand and govern AI usage on this machine, with notice to the people who use it.</p>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Connect a client</h3>
+        <div class="howto" id="howto"></div>
+      </div>
+      <div class="card">
+        <h3>Policy</h3>
+        <pre class="policy" id="policy"></pre>
+        <p class="fine">Edit <code id="policy-path"></code> and restart Sightline. Uninstall everything with <code>sightline uninstall</code>.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- DETAIL DRAWER -->
+  <aside class="drawer" id="drawer" hidden aria-label="Call detail">
+    <div class="drawer-head">
+      <div>
+        <div class="d-title" id="d-title"></div>
+        <div class="d-sub" id="d-sub"></div>
+      </div>
+      <button class="ghost close" id="d-close" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="d-tabs" role="tablist">
+      <button type="button" data-tab="conv" class="on">Conversation</button>
+      <button type="button" data-tab="usage">Usage &amp; cost</button>
+      <button type="button" data-tab="policy">Findings &amp; policy</button>
+      <button type="button" data-tab="raw">Request</button>
+    </div>
+    <div class="d-body" id="d-body"></div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+</body>
+</html>
