@@ -1,0 +1,27 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+      - run: uv sync --frozen
+      - run: uv run ruff check src tests
+      - name: unit tests
+        run: uv run pytest tests -q
+      - name: acceptance tests for merged modules
+        run: |
+          mods=""
+          for m in pricing detect providers/openai providers/anthropic providers/gemini providers/ollama; do
+            [ -f "src/sightline/$m.py" ] && mods="$mods acceptance/test_$(basename $m).py"
+          done
+          echo "running:$mods"
+          [ -z "$mods" ] || uv run pytest $mods -q
