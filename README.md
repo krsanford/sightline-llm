@@ -10,6 +10,10 @@ the machine, enforces simple block rules, and shows it all live in a local dashb
 It is built for the engineer or IT lead who needs a straight answer to *"what is actually being sent to AI
 providers from this company laptop, and what is it costing?"*
 
+![Sightline traffic view: the dev swarm's own calls to local models, with tokens, shadow cost and time to first token](docs/img/traffic.jpg)
+
+<sub>Real data: Sightline metering the local-model swarm that helped build it. Time to first token of 131 s on a 6.4k-token prompt exposed that the swarm was prefill-bound.</sub>
+
 > **Visibility, not enforcement.** A local proxy can be bypassed by a determined user. Sightline is a
 > governance and debugging tool for machines whose users have been told it is there. It is not covert monitoring.
 
