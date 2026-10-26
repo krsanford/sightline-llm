@@ -49,6 +49,7 @@ class Settings:
     proxy_port: int = 8899      # explicit HTTPS proxy (HTTPS_PROXY / PAC)
     gateway_port: int = 8897    # base-URL mode, plain HTTP on loopback
     ui_port: int = 8898         # dashboard + API + proxy.pac
+    ollama_port: int = 8896     # transparent Ollama passthrough (same paths as Ollama itself)
     capture_bodies: str = "redacted"   # "redacted" | "metadata" (no bodies at all)
     body_retention_days: int = 7
     metadata_retention_days: int = 30

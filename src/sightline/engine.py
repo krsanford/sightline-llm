@@ -109,7 +109,16 @@ class SightlineAddon:
 
     def request(self, flow: http.HTTPFlow) -> None:
         mode = self._mode(flow)
-        if mode == "gateway":
+        pm = getattr(flow.client_conn, "proxy_mode", None)
+        log.debug("request mode=%s pm=%r host=%s port=%s path=%s", mode, pm, flow.request.host, flow.request.port,
+                  flow.request.path)
+        if mode == "gateway" and str(getattr(pm, "data", "")).endswith(f":{self.settings.ollama_upstream[1]}"):
+            # Transparent Ollama listener: same paths as Ollama, so it can sit in front of Ollama for any client
+            # (and an nginx `backup` upstream can fail over to Ollama directly if Sightline is down).
+            flow.request.scheme = "http"
+            flow.request.host, flow.request.port = self.settings.ollama_upstream
+            flow.request.headers["host"] = "localhost:11434"
+        elif mode == "gateway":
             if not self._gateway_route(flow):
                 flow.response = http.Response.make(
                     404, json.dumps({"error": "unknown Sightline gateway route; use /openai, /anthropic, "

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import signal
 
 import uvicorn
@@ -20,6 +21,18 @@ from .store import Store
 log = logging.getLogger("sightline")
 
 
+def mitm_options(settings: Settings) -> dict:
+    """mitmproxy listener options. Kept separate so the wiring is unit-tested."""
+    return {
+        "mode": [f"regular@{settings.proxy_port}", f"reverse:https://api.openai.com@{settings.gateway_port}",
+                 f"reverse:http://{settings.ollama_upstream[0]}:{settings.ollama_upstream[1]}@{settings.ollama_port}"],
+        # allow_hosts also gates reverse-mode targets: without the Ollama entry, the transparent Ollama listener
+        # silently degrades to a raw TCP pipe the addon never sees. (Proxy mode still refuses private upstreams.)
+        "allow_hosts": [ALLOW_HOSTS_RE, rf"^{re.escape(settings.ollama_upstream[0])}:{settings.ollama_upstream[1]}$"],
+        "connection_strategy": "lazy",
+    }
+
+
 async def serve(settings: Settings) -> None:
     settings.ensure()
     store = Store(settings.db_path, capture_bodies=settings.capture_bodies)
@@ -33,11 +46,7 @@ async def serve(settings: Settings) -> None:
     opts = Options(listen_host="127.0.0.1", confdir=str(settings.certs_dir))
     master = DumpMaster(opts, with_termlog=False, with_dumper=False)
     # These options are registered by mitmproxy's addons, so they can only be set once the master exists.
-    opts.update(
-        mode=[f"regular@{settings.proxy_port}", f"reverse:https://api.openai.com@{settings.gateway_port}"],
-        allow_hosts=[ALLOW_HOSTS_RE],
-        connection_strategy="lazy",
-    )
+    opts.update(**mitm_options(settings))
     master.addons.add(SightlineAddon(settings, store, policy, load_table(), bus))
 
     app = create_app(settings, store, policy, bus)
@@ -61,5 +70,8 @@ async def serve(settings: Settings) -> None:
 
 
 def run(settings: Settings | None = None) -> None:
+    import os
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    if os.environ.get("SIGHTLINE_DEBUG"):
+        logging.getLogger("sightline").setLevel(logging.DEBUG)
     asyncio.run(serve(settings or Settings.load()))
