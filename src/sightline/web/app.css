@@ -29,6 +29,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.45 var(--sans); -webkit-font-smoothing: antialiased; }
 h1 { font-size: 20px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 16px; }
 h2 { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
