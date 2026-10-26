@@ -62,7 +62,7 @@ main { padding: 20px 24px 40px; max-width: 1480px; margin: 0 auto; }
 .kpi { padding: 14px 16px; border-right: 1px solid var(--line); min-width: 0; }
 .kpi:last-child { border-right: 0; }
 .k-label { color: var(--ink-3); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
-.k-value { font: 600 19px/1.3 var(--mono); font-variant-numeric: tabular-nums; margin-top: 4px; letter-spacing: -.02em;
+.k-value { font: 600 clamp(15px, 1.5vw, 19px)/1.3 var(--mono); font-variant-numeric: tabular-nums; margin-top: 4px; letter-spacing: -.02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .k-sub { color: var(--ink-3); font-size: 11.5px; margin-top: 1px; white-space: nowrap; }
 
