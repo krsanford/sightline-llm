@@ -90,6 +90,8 @@ def create_app(settings: Settings, store: Store, policy: Policy, bus: Bus) -> Fa
             "decrypt_hosts": [h.replace("[a-z0-9-]+", "*").replace("\\", "") for h in DECRYPT_HOSTS],
             "parsers": providers.available(),
             "policy": policy.to_dict(),
+            "allow_models": sorted(settings.allow_models),
+            "pin_num_ctx": settings.pin_num_ctx,
             "capture_bodies": settings.capture_bodies,
             "retention": {"bodies_days": settings.body_retention_days,
                           "metadata_days": settings.metadata_retention_days},
