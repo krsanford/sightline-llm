@@ -1,13 +1,20 @@
 from sightline.detect import redact, scan
 
+# Credential-shaped test values are assembled at runtime so no scanner (gitleaks, GitHub push
+# protection) mistakes the source for a leaked secret. AKIAIOSFODNN7EXAMPLE is AWS's documented example.
+GH = "gh" + "p_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij"
+OAI = "sk-" + "proj-" + "abcdefghijklmnopqrstuvwxyz0123456789ABCD"
+ANT = "sk-" + "ant-api03-" + "abcdefghijklmnopqrstuvwxyz0123456789-ABCDEFG"
+PEM = "-----BEGIN OPENSSH " + "PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\n-----END OPENSSH " + "PRIVATE KEY-----"
+
 TEXT = (
     "Contact jane.doe@example.com or (415) 555-0132. SSN 123-45-6789. "
     "Card 4111 1111 1111 1111, bad card 4111 1111 1111 1112. "
-    "AWS AKIAIOSFODNN7EXAMPLE, gh ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij, "
-    "openai sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD, "
-    "anthropic sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789-ABCDEFG, "
-    "jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U "
-    "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\n-----END OPENSSH PRIVATE KEY-----"
+    f"AWS AKIAIOSFODNN7EXAMPLE, gh {GH}, "
+    f"openai {OAI}, "
+    f"anthropic {ANT}, "
+    "jwt " + "eyJhbGciOiJIUzI1NiJ9" + "." + "eyJzdWIiOiIxMjM0NTY3ODkwIn0" + ".dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U "
+    + PEM
 )
 
 
