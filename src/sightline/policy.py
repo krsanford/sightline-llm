@@ -60,6 +60,13 @@ class Decision:
 LOCAL_PROVIDERS = frozenset({"ollama"})
 
 
+def is_cloud_model(model: str | None) -> bool:
+    """Ollama can proxy hosted models (e.g. 'gpt-oss:120b-cloud', 'qwen3:480b:cloud'). Those prompts leave the Mac,
+    so they get the full hosted-provider treatment, not the local exemption."""
+    m = (model or "").lower()
+    return m.endswith((":cloud", "-cloud")) or ":cloud" in m
+
+
 @dataclass
 class Policy:
     categories: set[str] = field(default_factory=lambda: {"secret", "pii"})
@@ -125,7 +132,7 @@ class Policy:
             return Decision()
         has_secret = any(f["category"] == "secret" for f in findings)
         summary = ", ".join(f"{f['count']}× {f['kind']}" for f in findings)
-        if provider in self.local_providers:
+        if provider in self.local_providers and not is_cloud_model(model):
             return Decision(action="allowed", reasons=[f"local model: observed, not redacted ({summary})"],
                             findings=findings)
         if has_secret and self.on_secret == "block":

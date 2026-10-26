@@ -1,4 +1,5 @@
 """End-to-end through the mitmproxy addon with in-memory flows (no network)."""
+import json
 from pathlib import Path
 
 import pytest
@@ -90,3 +91,17 @@ def test_control_plane_calls_are_not_recorded(addon):
     f.response = tutils.tresp(content=b'{"version":"0.40.11"}')
     a.response(f)
     assert store.list() == []
+
+
+def test_ollama_listener_refuses_models_outside_allowlist(tmp_path):
+    from mitmproxy.proxy.mode_specs import ProxyMode
+    store = Store(tmp_path / "t.db")
+    s = Settings(home=tmp_path)
+    s.allow_models = ["qwen3.8:27b-mlx-256k"]
+    a = SightlineAddon(s, store, Policy(), load_table(), Bus())
+    for model, blocked in (("qwen3.8:27b-mlx-256k", False), ("llama3:70b", True)):
+        f = flow("127.0.0.1", "/v1/chat/completions", json.dumps({"model": model, "messages": []}).encode(),
+                 port=11434, scheme="http")
+        f.client_conn.proxy_mode = ProxyMode.parse("reverse:http://127.0.0.1:11434@8896")
+        a.request(f)
+        assert (f.response is not None and f.response.status_code == 403) is blocked, model

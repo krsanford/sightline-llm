@@ -35,3 +35,11 @@ def test_local_provider_is_observed_not_rewritten():
     d = Policy().evaluate("ollama", "qwen3.8:27b", "127.0.0.1", body)
     assert d.action == "allowed" and d.body is None and "local model" in d.reasons[0]
     assert {f["kind"] for f in d.findings} == {"aws_access_key"}
+
+
+def test_ollama_cloud_models_are_not_exempt():
+    pytest.importorskip("sightline.detect")
+    body = json.dumps({"messages": [{"role": "user", "content": "key AKIAIOSFODNN7EXAMPLE"}]}).encode()
+    for model in ("gpt-oss:120b-cloud", "qwen3-coder:480b-cloud", "deepseek-v3.1:671b:cloud"):
+        d = Policy().evaluate("ollama", model, "127.0.0.1", body)
+        assert d.action == "redacted", model

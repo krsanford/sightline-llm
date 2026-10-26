@@ -26,7 +26,7 @@ from . import providers
 from .config import GATEWAY_ROUTES, Settings
 from .policy import Policy, redact_text
 from .pricing import PriceTable
-from .providers.base import ParsedRequest, ParsedResponse, Usage
+from .providers.base import ParsedRequest, ParsedResponse, Usage, load_json
 from .store import Call, Store
 
 log = logging.getLogger("sightline.engine")
@@ -120,6 +120,13 @@ class SightlineAddon:
             flow.request.scheme = "http"
             flow.request.host, flow.request.port = self.settings.ollama_upstream
             flow.request.headers["host"] = "localhost:11434"
+            if self.settings.allow_models and flow.request.method == "POST":
+                model = (load_json(flow.request.get_content(strict=False) or b"") or {}).get("model")
+                if model and model not in self.settings.allow_models:
+                    flow.response = http.Response.make(
+                        403, json.dumps({"error": f"model {model!r} is not allowed on this listener"}),
+                        {"content-type": "application/json", "x-sightline": "model-not-allowed"})
+                    return
         elif mode == "gateway":
             if not self._gateway_route(flow):
                 flow.response = http.Response.make(

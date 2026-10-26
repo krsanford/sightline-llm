@@ -54,6 +54,9 @@ class Settings:
     body_retention_days: int = 7
     metadata_retention_days: int = 30
     ollama_upstream: tuple[str, int] = ("127.0.0.1", 11434)
+    # Models the transparent Ollama listener will forward. Empty = allow all. Anything else gets 403, so a sandboxed
+    # agent can't load a third model (evicting the lanes' caches) or reach an Ollama cloud model.
+    allow_models: list[str] = field(default_factory=list)
 
     @property
     def db_path(self) -> Path:
