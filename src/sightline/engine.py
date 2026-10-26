@@ -164,7 +164,7 @@ class SightlineAddon:
         call = Call(mode=mode, client=client_name(flow.request.headers.get("user-agent")), provider=name,
                     host=host, method=flow.request.method, path=path_only + (f"?{safe_query}" if safe_query else ""),
                     endpoint=parsed.endpoint, model=parsed.model, stream=parsed.stream, action=decision.action,
-                    reasons=decision.reasons, findings=decision.findings,
+                    reasons=decision.reasons, findings=decision.findings, tool_names=parsed.tool_names,
                     key_fp=hashlib.sha256(secret.encode()).hexdigest()[:12] if secret else None,
                     tag=tag, req_bytes=len(body))
         call.prompt = _store_text(parsed.prompt_text())

@@ -15,6 +15,7 @@ which is what makes them safe to fuzz and cheap to test against recorded fixture
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass, field
 from typing import Literal
@@ -61,6 +62,7 @@ class ParsedRequest:
     system: str | None = None
     messages: list[Message] = field(default_factory=list)
     tool_count: int = 0
+    tool_names: list[str] = field(default_factory=list)
     max_tokens: int | None = None
     error: str | None = None
 
@@ -141,6 +143,39 @@ def iter_ndjson(chunks: Iterable[bytes]) -> Iterator[dict]:
 def load_json(body: bytes) -> dict | None:
     obj = _loads(body)
     return obj if isinstance(obj, dict) else None
+
+
+_TOOL_NAME_RE = re.compile(r"[A-Za-z0-9_.:-]{1,64}")
+
+
+def tool_names_from(tools: object) -> list[str]:
+    """Extract tool NAMES (only -- never descriptions/schemas) from a request's ``tools`` list.
+
+    Accepts the OpenAI shape (``{"function": {"name": ...}}``) and the flat shape
+    (``{"name": ...}``). Names are validated, de-duplicated keeping first order, then
+    capped at 64. Anything that is not a list, or a crafted entry that fails the isinstance
+    checks at every level, contributes nothing and never raises.
+    """
+    if not isinstance(tools, list):
+        return []
+    out: list[str] = []
+    for item in tools:
+        name: object | None = None
+        if isinstance(item, dict):
+            fn = item.get("function")
+            if isinstance(fn, dict):
+                name = fn.get("name")
+            elif "name" in item:
+                name = item.get("name")
+        if not isinstance(name, str):
+            continue
+        if not _TOOL_NAME_RE.fullmatch(name):
+            continue
+        if name not in out:
+            out.append(name)
+        if len(out) >= 64:
+            break
+    return out
 
 
 def _loads(raw: bytes):

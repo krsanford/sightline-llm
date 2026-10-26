@@ -30,6 +30,7 @@ from sightline.providers.base import (
     iter_ndjson,
     iter_sse,
     load_json,
+    tool_names_from,
 )
 
 _PROVIDER = "ollama"
@@ -129,6 +130,7 @@ def parse_request(path: str, body: bytes) -> ParsedRequest:
 
     tools = obj.get("tools")
     tool_count = len(tools) if isinstance(tools, list) else 0
+    tool_names = tool_names_from(tools)
     max_tokens = obj.get("options", {}).get("num_predict") if isinstance(obj.get("options"), dict) else None
     if max_tokens is None:
         max_tokens = obj.get("max_tokens")
@@ -149,6 +151,7 @@ def parse_request(path: str, body: bytes) -> ParsedRequest:
         system=system,
         messages=messages,
         tool_count=tool_count,
+        tool_names=tool_names,
         max_tokens=int(max_tokens) if isinstance(max_tokens, int) else None,
     )
 

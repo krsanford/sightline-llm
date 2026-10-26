@@ -10,6 +10,7 @@ Privacy floor (enforced here, not by callers):
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sqlite3
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS calls (
     action        TEXT,             -- allowed | redacted | blocked
     reasons       TEXT,             -- JSON list of policy reasons
     findings      TEXT,             -- JSON list of {kind, category, count}
+    tool_names    TEXT,             -- JSON list of offered tool names (names only)
     key_fp        TEXT,             -- sha256(auth)[:12], never the key
     tag           TEXT,             -- optional caller tag (e.g. X-Sightline-Tag: swarm/lane-a)
     prompt        TEXT,             -- redacted
@@ -88,6 +90,7 @@ class Call:
     action: str = "allowed"
     reasons: list[str] = field(default_factory=list)
     findings: list[dict] = field(default_factory=list)
+    tool_names: list[str] = field(default_factory=list)
     key_fp: str | None = None
     tag: str | None = None
     prompt: str | None = None
@@ -111,6 +114,24 @@ class Store:
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Add the ``tool_names`` column to a pre-existing database, race-safely.
+
+        A fresh database already has the column from the CREATE TABLE, so this is a
+        no-op. For a database created before the column existed, an ``ALTER TABLE`` adds
+        it; the ``suppress`` guards the window where a second process adds the same column
+        concurrently. We re-check and raise only if the column is still missing.
+        """
+        cols = [r[1] for r in self.db.execute("PRAGMA table_info(calls)").fetchall()]
+        if "tool_names" in cols:
+            return
+        with contextlib.suppress(sqlite3.OperationalError):
+            self.db.execute("ALTER TABLE calls ADD COLUMN tool_names TEXT")
+        cols = [r[1] for r in self.db.execute("PRAGMA table_info(calls)").fetchall()]
+        if "tool_names" not in cols:
+            raise RuntimeError("could not add tool_names column to calls table")
 
     def insert(self, call: Call) -> int:
         d = asdict(call)
@@ -118,6 +139,7 @@ class Store:
             d["prompt"] = d["response"] = None
         d["reasons"] = json.dumps(d["reasons"])
         d["findings"] = json.dumps(d["findings"])
+        d["tool_names"] = json.dumps(d["tool_names"])
         d["stream"] = int(bool(d["stream"]))
         cols = ",".join(d)
         with self._lock:
@@ -214,6 +236,7 @@ def _row(r: sqlite3.Row) -> dict:
     for k in ("reasons", "findings"):
         if isinstance(d.get(k), str):
             d[k] = json.loads(d[k])
+    d["tool_names"] = json.loads(d["tool_names"]) if isinstance(d.get("tool_names"), str) else []
     if "stream" in d:
         d["stream"] = bool(d["stream"])
     return d

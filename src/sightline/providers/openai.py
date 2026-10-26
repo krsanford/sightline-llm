@@ -29,6 +29,7 @@ from sightline.providers.base import (
     content_to_text,
     iter_sse,
     load_json,
+    tool_names_from,
 )
 
 PROVIDER = "openai"
@@ -143,6 +144,7 @@ def parse_request(path: str, body: bytes) -> ParsedRequest:
 
     tools = obj.get("tools")
     tool_count = len(tools) if isinstance(tools, list) else 0
+    tool_names = tool_names_from(tools)
     model = obj.get("model")
     return ParsedRequest(
         provider=PROVIDER,
@@ -152,6 +154,7 @@ def parse_request(path: str, body: bytes) -> ParsedRequest:
         system=system,
         messages=messages,
         tool_count=tool_count,
+        tool_names=tool_names,
         max_tokens=_max_tokens(obj),
     )
 
