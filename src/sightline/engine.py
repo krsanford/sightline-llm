@@ -121,8 +121,12 @@ class SightlineAddon:
             flow.request.host, flow.request.port = self.settings.ollama_upstream
             flow.request.headers["host"] = "localhost:11434"
             if self.settings.allow_models and flow.request.method == "POST":
-                model = (load_json(flow.request.get_content(strict=False) or b"") or {}).get("model")
-                if model and model not in self.settings.allow_models:
+                # Fail closed: unparseable bodies, a missing model, or several case-variants of the key (Ollama's
+                # JSON decoder matches keys case-insensitively, so {"Model": ...} would otherwise slip through).
+                doc = load_json(flow.request.get_content(strict=False) or b"")
+                models = [v for k, v in (doc or {}).items() if k.lower() == "model"]
+                model = models[0] if len(models) == 1 and isinstance(models[0], str) else None
+                if model not in self.settings.allow_models:
                     flow.response = http.Response.make(
                         403, json.dumps({"error": f"model {model!r} is not allowed on this listener"}),
                         {"content-type": "application/json", "x-sightline": "model-not-allowed"})
