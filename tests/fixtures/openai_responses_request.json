@@ -1,0 +1,1 @@
+{"model":"gpt-5.5","instructions":"Be brief.","input":[{"role":"user","content":[{"type":"input_text","text":"Say hello world. My card is 4111 1111 1111 1111."}]}],"stream":true,"max_output_tokens":100}

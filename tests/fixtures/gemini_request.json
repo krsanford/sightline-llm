@@ -1,0 +1,1 @@
+{"systemInstruction":{"parts":[{"text":"Answer like a physicist."}]},"contents":[{"role":"user","parts":[{"text":"Why is the sky blue?"}]}],"generationConfig":{"maxOutputTokens":256}}
