@@ -62,7 +62,7 @@ main { padding: 20px 24px 40px; max-width: 1480px; margin: 0 auto; }
 .kpi { padding: 14px 16px; border-right: 1px solid var(--line); min-width: 0; }
 .kpi:last-child { border-right: 0; }
 .k-label { color: var(--ink-3); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
-.k-value { font: 600 20px/1.3 var(--mono); font-variant-numeric: tabular-nums; margin-top: 4px; letter-spacing: -.02em;
+.k-value { font: 600 19px/1.3 var(--mono); font-variant-numeric: tabular-nums; margin-top: 4px; letter-spacing: -.02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .k-sub { color: var(--ink-3); font-size: 11.5px; margin-top: 1px; white-space: nowrap; }
 
@@ -93,8 +93,8 @@ table.calls { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .calls tbody tr.new { animation: arrive 1.4s ease-out; }
 @keyframes arrive { from { background: var(--accent-soft); } to { background: transparent; } }
 .calls .num, .plain .num { text-align: right; }
-.c-time { width: 92px; } .c-prov { width: 104px; } .c-app { width: 150px; } .c-status { width: 150px; }
-.calls th.num { width: 84px; }
+.c-time { width: 94px; } .c-prov { width: 104px; } .c-app { width: 140px; } .c-status { width: 168px; }
+.calls th.num { width: 64px; } .calls th.c-cost { width: 86px; }
 td.muted, .muted { color: var(--ink-3); }
 .prov { display: inline-flex; align-items: center; gap: 7px; }
 .prov i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; background: var(--ink-3); }
@@ -170,6 +170,9 @@ table.plain { width: 100%; border-collapse: collapse; }
 .howto pre, pre.policy { background: var(--line-2); border-radius: 7px; padding: 10px 12px; margin: 6px 0 0; overflow-x: auto; white-space: pre; }
 .howto p { color: var(--ink-2); margin: 0; }
 
+@media (max-width: 1200px) {
+  .c-app, .calls td:nth-child(4) { display: none; }
+}
 @media (max-width: 1000px) {
   .kpis { grid-template-columns: repeat(3, 1fr); }
   .kpi:nth-child(3) { border-right: 0; }

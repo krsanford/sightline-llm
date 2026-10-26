@@ -87,7 +87,7 @@ def create_app(settings: Settings, store: Store, policy: Policy, bus: Bus) -> Fa
             "version": __version__,
             "ports": {"proxy": settings.proxy_port, "gateway": settings.gateway_port, "ui": settings.ui_port},
             "ca": {"path": str(ca), "exists": ca.exists(), "key_mode": _mode(settings.certs_dir / "mitmproxy-ca.pem")},
-            "decrypt_hosts": [h.replace("\\", "") for h in DECRYPT_HOSTS],
+            "decrypt_hosts": [h.replace("[a-z0-9-]+", "*").replace("\\", "") for h in DECRYPT_HOSTS],
             "parsers": providers.available(),
             "policy": policy.to_dict(),
             "capture_bodies": settings.capture_bodies,

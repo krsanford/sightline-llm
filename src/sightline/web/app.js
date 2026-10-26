@@ -43,7 +43,7 @@ const fmtUsd = (v) => {
   if (v < 100) return "$" + v.toFixed(2);
   return "$" + nf.format(Math.round(v));
 };
-const fmtMs = (v) => (v === null || v === undefined ? "—" : v < 1000 ? Math.round(v) + "ms" : (v / 1000).toFixed(v < 10000 ? 2 : 1) + "s");
+const fmtMs = (v) => (v === null || v === undefined ? "—" : v < 1000 ? Math.round(v) + "ms" : v < 10000 ? (v / 1000).toFixed(2) + "s" : Math.round(v / 1000) + "s");
 const fmtTime = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 const api = (path) => fetch(path, { headers: { Accept: "application/json" } }).then((r) => {
   if (!r.ok) throw new Error(r.status);
@@ -186,7 +186,7 @@ function renderTab() {
   const kids = [];
   if (state.tab === "conv") {
     if (c.action === "blocked") kids.push(el("div", { class: "callout bad" }, el("b", {}, "Blocked before leaving this Mac. "), (c.reasons || []).join("; ")));
-    if (c.action === "redacted") kids.push(el("div", { class: "callout warn" }, el("b", {}, "Redacted. "), (c.reasons || []).join("; "), " — the provider received the masked text shown below, and only the masked text was stored."));
+    if (c.action === "redacted") kids.push(el("div", { class: "callout warn" }, el("b", {}, "Redacted. "), (c.reasons || []).join("; "), ". The provider received the masked text below, and only the masked text was stored."));
     if (c.prompt) kids.push(el("div", { class: "msg" }, el("div", { class: "role" }, "Prompt (as forwarded)"), el("div", { class: "text" }, withMarks(c.prompt))));
     else kids.push(el("p", { class: "muted" }, "No prompt text stored (metadata-only capture, or retention expired)."));
     if (c.response) kids.push(el("div", { class: "msg assistant" }, el("div", { class: "role" }, "Response"), el("div", { class: "text" }, withMarks(c.response))));
@@ -229,10 +229,11 @@ async function renderInsights() {
     lab.textContent = fmtUsd(max * (1 - i / 3));
     s.append(lab);
   }
-  const bw = pts.length ? Math.max(2, (W - P.l - P.r) / pts.length - 3) : 0;
+  const slot = (W - P.l - P.r) / Math.max(1, pts.length);
+  const bw = pts.length ? Math.min(36, Math.max(2, slot - 3)) : 0;
   pts.forEach((p, i) => {
     const h = ((H - P.t - P.b) * p.spend) / max;
-    const x = P.l + i * ((W - P.l - P.r) / Math.max(1, pts.length)) + 1;
+    const x = P.l + i * slot + (slot - bw) / 2;
     const r = svg("rect", { x, y: H - P.b - h, width: bw, height: Math.max(h, p.calls ? 1 : 0), class: "bar", rx: 1.5 });
     const t = svg("title", {});
     t.textContent = `${new Date(p.bucket * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit" })} · ${fmtUsd(p.spend)} · ${p.calls} calls`;
@@ -241,7 +242,7 @@ async function renderInsights() {
   });
   if (pts.length) {
     [0, pts.length - 1].forEach((i) => {
-      const lab = svg("text", { x: P.l + i * ((W - P.l - P.r) / Math.max(1, pts.length)) + (i ? bw : 0), y: H - 6, "text-anchor": i ? "end" : "start", class: "axis" });
+      const lab = svg("text", { x: P.l + i * slot + slot / 2, y: H - 6, "text-anchor": "middle", class: "axis" });
       lab.textContent = new Date(pts[i].bucket * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
       s.append(lab);
     });
@@ -292,6 +293,7 @@ async function renderSetup() {
 // ---------------------------------------------------------------- routing / boot
 function route() {
   const view = (location.hash.replace("#/", "") || "traffic").split("?")[0];
+  closeDetail();
   for (const v of ["traffic", "insights", "setup"]) $(`view-${v}`).hidden = v !== view;
   document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === view));
   if (view === "insights") renderInsights().catch(console.error);
