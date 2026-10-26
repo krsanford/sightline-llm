@@ -77,3 +77,16 @@ def test_openai_stream_is_metered_when_parser_present(addon):
     a.response(f)
     row = store.list()[0]
     assert row["input_tokens"] == 24 and row["output_tokens"] == 112 and row["ttft_ms"] is not None
+
+
+def test_control_plane_calls_are_not_recorded(addon):
+    pytest.importorskip("sightline.providers.ollama")
+    a, store = addon
+    from mitmproxy.proxy.mode_specs import ProxyMode
+    f = flow("127.0.0.1", "/api/version", b"", port=11434, scheme="http")
+    f.request.method = "GET"
+    f.client_conn.proxy_mode = ProxyMode.parse("reverse:http://127.0.0.1:11434@8896")
+    a.request(f)
+    f.response = tutils.tresp(content=b'{"version":"0.40.11"}')
+    a.response(f)
+    assert store.list() == []

@@ -199,7 +199,7 @@ class SightlineAddon:
             path_only = urlsplit(flow.request.path).path
             parsed = _safe(lambda: mod.parse_response(path_only, content), ParsedResponse()) \
                 if (mod and call.action != "blocked") else ParsedResponse()
-        self._finish(call, st["parsed"], parsed)
+        self._finish(call, st["parsed"], parsed, parsed=mod is not None)
 
     def error(self, flow: http.HTTPFlow) -> None:
         st = flow.metadata.pop("sightline", None)
@@ -208,11 +208,16 @@ class SightlineAddon:
         call: Call = st["call"]
         call.latency_ms = round((time.monotonic() - st["t0"]) * 1000, 1)
         call.error = str(flow.error)[:500] if flow.error else "connection error"
-        self._finish(call, st["parsed"], ParsedResponse())
+        self._finish(call, st["parsed"], ParsedResponse(), parsed=st["mod"] is not None)
 
     # ------------------------------------------------------------------ bookkeeping
 
-    def _finish(self, call: Call, req: ParsedRequest, resp: ParsedResponse) -> None:
+    def _finish(self, call: Call, req: ParsedRequest, resp: ParsedResponse, parsed: bool = True) -> None:
+        # Control-plane calls (model lists, /api/show, version checks) are not LLM usage. When a parser
+        # recognised the provider and nothing notable happened, keep them out of the traffic table.
+        if (parsed and call.endpoint in ("models", "other") and call.action == "allowed" and not call.error
+                and (call.status or 0) < 400):
+            return
         call.model = resp.model or call.model
         u: Usage = resp.usage
         if u.source != "none":
