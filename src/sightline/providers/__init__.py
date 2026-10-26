@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import time
 from types import ModuleType
 
 log = logging.getLogger("sightline.providers")
@@ -31,17 +32,26 @@ KNOWN_HOSTS = {
     "api.perplexity.ai": "perplexity",
 }
 
-_loaded: dict[str, ModuleType | None] = {}
+RETRY_S = 30.0
+_loaded: dict[str, tuple[ModuleType | None, float]] = {}
 
 
 def _module(name: str) -> ModuleType | None:
-    if name not in _loaded:
-        try:
-            _loaded[name] = importlib.import_module(f"sightline.providers.{name}")
-        except Exception as exc:  # noqa: BLE001 - a broken parser must never take the proxy down
+    """Import a parser lazily. A missing one is retried every RETRY_S seconds, so a parser added while
+    Sightline is running is picked up without a restart (restarts drop in-flight streams)."""
+    mod, at = _loaded.get(name, (None, 0.0))
+    if mod is not None or (name in _loaded and time.monotonic() - at < RETRY_S):
+        return mod
+    try:
+        mod = importlib.import_module(f"sightline.providers.{name}")
+        if name in _loaded:
+            log.info("provider parser %s loaded", name)
+    except Exception as exc:  # noqa: BLE001 - a broken parser must never take the proxy down
+        if name not in _loaded:
             log.warning("provider parser %s unavailable: %s", name, exc)
-            _loaded[name] = None
-    return _loaded[name]
+        mod = None
+    _loaded[name] = (mod, time.monotonic())
+    return mod
 
 
 def available() -> list[str]:
