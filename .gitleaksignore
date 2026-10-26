@@ -1,0 +1,2 @@
+# Fake JWT test vector in the first commit of acceptance/test_detect.py (no real key; HEAD assembles it at runtime).
+e85660634a0b786a139ac8080bb19b2560efe5bd:acceptance/test_detect.py:jwt:9
