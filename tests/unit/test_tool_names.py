@@ -17,14 +17,26 @@ def test_tool_names_from_shapes():
     assert tool_names_from(OPENAI_TOOLS) == ["read_file", "terminal"]
     assert tool_names_from([{"name": "web_search", "input_schema": {}}]) == ["web_search"]     # flat shape
     assert tool_names_from(None) == [] and tool_names_from("x") == [] and tool_names_from([1, None, {}]) == []
+    assert tool_names_from([{"function": "x"}, {"function": None, "name": "n"}, {"function": {"name": ["a"]}},
+                            {"name": 5}, {"function": {"name": "f"}, "name": "flat"}]) == ["n", "f"]
+
+
+def test_hostile_tools_never_hide_the_model():
+    body = json.dumps({"model": "m", "messages": [{"role": "user", "content": "hi"}],
+                       "tools": [{"function": "x"}, {"function": {"name": {"$": 1}}}]}).encode()
+    for mod in (openai, ollama):
+        r = mod.parse_request("/v1/chat/completions", body)
+        assert r.model == "m" and r.tool_names == [] and r.error is None
 
 
 def test_tool_names_validated_deduped_capped():
     weird = [{"name": "ok_1"}, {"name": "ok_1"}, {"name": "bad name with spaces"}, {"name": "x" * 65},
-             {"name": "<script>"}, {"name": "mcp.server:tool-2"}]
+             {"name": "<script>"}, {"name": "ok\n"}, {"name": "mcp.server:tool-2"}]
     assert tool_names_from(weird) == ["ok_1", "mcp.server:tool-2"]
     many = [{"name": f"t{i}"} for i in range(100)]
     assert len(tool_names_from(many)) == 64
+    dupes = [{"name": "same"}] * 10 + [{"name": f"u{i}"} for i in range(60)]
+    assert len(tool_names_from(dupes)) == 61                       # dedupe FIRST, then cap
 
 
 def test_parsers_fill_tool_names():
@@ -59,4 +71,19 @@ def test_store_migrates_old_db(tmp_path):
 
 
 def test_engine_passes_tool_names_through():
-    assert "tool_names=parsed.tool_names" in inspect.getsource(engine.SightlineAddon)
+    assert "tool_names=parsed.tool_names" in inspect.getsource(engine.SightlineAddon.request)
+
+
+def test_migration_is_race_safe(tmp_path):
+    db = tmp_path / "race.db"
+    Store(db).db.close()
+    c = sqlite3.connect(db)
+    c.execute("ALTER TABLE calls DROP COLUMN tool_names")
+    c.commit()
+    c.close()
+    late = Store.__new__(Store)                    # a second process that checked PRAGMA before the first migrated
+    s = Store(db)                                  # the first process migrates
+    late.db = sqlite3.connect(db, isolation_level=None)
+    late._migrate()                                # must not raise "duplicate column name"
+    assert "tool_names" in [r[1] for r in sqlite3.connect(db).execute("PRAGMA table_info(calls)")]
+    assert s.get(s.insert(Call(provider="ollama", model="m", tool_names=["z"])))["tool_names"] == ["z"]
