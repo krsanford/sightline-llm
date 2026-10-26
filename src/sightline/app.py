@@ -53,8 +53,10 @@ async def serve(settings: Settings) -> None:
     master.addons.add(SightlineAddon(settings, store, policy, load_table(), bus))
 
     app = create_app(settings, store, policy, bus)
+    # SSE live-feed clients never disconnect on their own; without a bound, a SIGTERM leaves a half-dead process
+    # (dashboard closed, proxy still holding its ports). Bound graceful shutdown to 3 s.
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=settings.ui_port, log_level="warning",
-                                           access_log=False))
+                                           access_log=False, timeout_graceful_shutdown=3))
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -67,7 +69,12 @@ async def serve(settings: Settings) -> None:
 
     purger = asyncio.create_task(purge_loop())
     try:
-        await asyncio.gather(master.run(), server.serve())
+        # Either half exiting (e.g. a port already in use) must take the whole process down.
+        tasks = [asyncio.create_task(master.run()), asyncio.create_task(server.serve())]
+        _done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        master.shutdown()
+        server.should_exit = True
+        await asyncio.wait(pending, timeout=5)
     finally:
         purger.cancel()
 
