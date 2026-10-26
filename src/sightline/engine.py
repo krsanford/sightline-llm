@@ -26,7 +26,7 @@ from . import providers
 from .config import GATEWAY_ROUTES, Settings
 from .policy import Policy, redact_text
 from .pricing import PriceTable
-from .providers.base import ParsedRequest, ParsedResponse, Usage, load_json
+from .providers.base import ParsedRequest, ParsedResponse, Usage
 from .store import Call, Store
 
 log = logging.getLogger("sightline.engine")
@@ -121,16 +121,13 @@ class SightlineAddon:
             flow.request.host, flow.request.port = self.settings.ollama_upstream
             flow.request.headers["host"] = "localhost:11434"
             if self.settings.allow_models and flow.request.method == "POST":
-                # Fail closed: unparseable bodies, a missing model, or several case-variants of the key (Ollama's
-                # JSON decoder matches keys case-insensitively, so {"Model": ...} would otherwise slip through).
-                doc = load_json(flow.request.get_content(strict=False) or b"")
-                models = [v for k, v in (doc or {}).items() if k.lower() == "model"]
-                model = models[0] if len(models) == 1 and isinstance(models[0], str) else None
-                if model not in self.settings.allow_models:
+                verdict = guard_ollama_body(flow.request.get_content(strict=False) or b"", self.settings)
+                if isinstance(verdict, str):
                     flow.response = http.Response.make(
-                        403, json.dumps({"error": f"model {model!r} is not allowed on this listener"}),
+                        403, json.dumps({"error": verdict}),
                         {"content-type": "application/json", "x-sightline": "model-not-allowed"})
                     return
+                flow.request.set_content(verdict)
         elif mode == "gateway":
             if not self._gateway_route(flow):
                 flow.response = http.Response.make(
@@ -251,6 +248,36 @@ class SightlineAddon:
         row = self.store.list(limit=1, since_id=call_id - 1)
         if row:
             self.bus.publish(row[0])
+
+
+def guard_ollama_body(raw: bytes, settings: Settings) -> bytes | str:
+    """Fail-closed check for the transparent Ollama listener. Returns the re-serialised body, or a refusal reason.
+    Ollama's JSON decoder is lenient (case-insensitive keys, last duplicate wins), so we accept exactly one 'model'
+    key spelled exactly so, and forward only what we parsed."""
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return "body is not valid UTF-8"
+
+    def pairs(items):
+        keys = [k for k, _ in items]
+        if len({k.casefold() for k in keys}) != len(keys):
+            raise ValueError("duplicate or case-variant keys")
+        return dict(items)
+    try:
+        doc = json.loads(text, object_pairs_hook=pairs)
+    except ValueError as exc:
+        return f"body rejected: {exc}"
+    if not isinstance(doc, dict) or not isinstance(doc.get("model"), str):
+        return "body must be a JSON object with a 'model' string"
+    if doc["model"] not in settings.allow_models:
+        return f"model {doc['model']!r} is not allowed on this listener"
+    doc.pop("keep_alive", None)
+    if settings.pin_num_ctx:
+        opts = doc.get("options") if isinstance(doc.get("options"), dict) else {}
+        opts["num_ctx"] = settings.pin_num_ctx
+        doc["options"] = opts
+    return json.dumps(doc).encode()
 
 
 def _safe(fn, default):

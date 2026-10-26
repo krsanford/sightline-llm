@@ -57,6 +57,9 @@ class Settings:
     # Models the transparent Ollama listener will forward. Empty = allow all. Anything else gets 403, so a sandboxed
     # agent can't load a third model (evicting the lanes' caches) or reach an Ollama cloud model.
     allow_models: list[str] = field(default_factory=list)
+    # The context window the allowed (lane) models are loaded with. Any other num_ctx forces Ollama to reload the
+    # model and drop its prompt cache, so the listener pins it. keep_alive is stripped for the same reason.
+    pin_num_ctx: int | None = 262144
 
     @property
     def db_path(self) -> Path:

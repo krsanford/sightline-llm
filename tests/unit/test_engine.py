@@ -109,3 +109,17 @@ def test_ollama_listener_refuses_models_outside_allowlist(tmp_path):
         f.client_conn.proxy_mode = ProxyMode.parse("reverse:http://127.0.0.1:11434@8896")
         a.request(f)
         assert (f.response is not None and f.response.status_code == 403) is blocked, model
+
+
+def test_guard_ollama_body_fail_closed_and_pins_cache_options(tmp_path):
+    from sightline.engine import guard_ollama_body
+    s = Settings(home=tmp_path)
+    s.allow_models = ["qwen3.8:27b-mlx-256k"]
+    ok = json.loads(guard_ollama_body(json.dumps({"model": "qwen3.8:27b-mlx-256k", "keep_alive": 0,
+                                                  "options": {"num_ctx": 4096}}).encode(), s))
+    assert ok["options"]["num_ctx"] == 262144 and "keep_alive" not in ok
+    for raw in [b'{"model":"qwen3.8:27b-mlx-256k","Model":"llama3:70b"}',
+                b'{"model":"qwen3.8:27b-mlx-256k","model":"llama3:70b"}',
+                b'{"Model":"qwen3.8:27b-mlx-256k"}', b'["qwen3.8:27b-mlx-256k"]', b'{"model":1}',
+                b'\xff\xfe{"model":"x"}', b'{"model":"llama3:70b"}']:
+        assert isinstance(guard_ollama_body(raw, s), str), raw
