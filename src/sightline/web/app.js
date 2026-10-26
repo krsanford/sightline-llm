@@ -39,7 +39,8 @@ const fmtTok = (n) => {
 const fmtUsd = (v) => {
   if (v === null || v === undefined) return "—";
   if (v === 0) return "$0";
-  if (v < 0.01) return "$" + v.toFixed(4);
+  if (v < 0.001) return "<$0.001";
+  if (v < 0.01) return "$" + v.toFixed(3);
   if (v < 100) return "$" + v.toFixed(2);
   return "$" + nf.format(Math.round(v));
 };
@@ -54,6 +55,7 @@ const api = (path) => fetch(path, { headers: { Accept: "application/json" } }).t
 function statusCell(c) {
   const out = [];
   if (c.action === "blocked") out.push(el("span", { class: "badge bad" }, "blocked"));
+  else if (c.error && /client disconnected/i.test(c.error)) out.push(el("span", { class: "badge warn", title: "The caller hung up before the response finished" }, "aborted"));
   else if (c.error && !c.status) out.push(el("span", { class: "badge bad" }, "error"));
   else if (c.status >= 400) out.push(el("span", { class: "badge warn" }, String(c.status)));
   else if (c.status) out.push(el("span", { class: "badge ok" }, String(c.status)));

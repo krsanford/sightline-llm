@@ -94,7 +94,7 @@ table.calls { width: 100%; border-collapse: collapse; table-layout: fixed; }
 @keyframes arrive { from { background: var(--accent-soft); } to { background: transparent; } }
 .calls .num, .plain .num { text-align: right; }
 .c-time { width: 94px; } .c-prov { width: 104px; } .c-app { width: 140px; } .c-status { width: 168px; }
-.calls th.num { width: 64px; } .calls th.c-cost { width: 86px; }
+.calls th.num { width: 64px; } .calls th.c-cost { width: 92px; }
 td.muted, .muted { color: var(--ink-3); }
 .prov { display: inline-flex; align-items: center; gap: 7px; }
 .prov i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; background: var(--ink-3); }
