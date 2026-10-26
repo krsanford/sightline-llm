@@ -88,6 +88,8 @@ The fleet-grade path (a `NETransparentProxyProvider` system extension deployed b
   rendered as text. Prompts and responses are treated as attacker-controlled content.
 - **The proxy refuses private upstreams**, so it cannot be used as a bridge into local services.
 
+See [docs/threat-model.md](docs/threat-model.md) for each threat, its control and the test that proves it.
+
 ## Configuration
 
 `~/Library/Application Support/Sightline/` holds `config.yaml` (ports, capture mode, retention),
