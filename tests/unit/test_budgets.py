@@ -9,12 +9,16 @@ from fastapi.testclient import TestClient
 from sightline import budgets
 from sightline.config import Settings
 from sightline.engine import Bus
+from sightline.engine import SightlineAddon
 from sightline.policy import Policy
+from sightline.pricing import load_table
+from sightline.providers.base import ParsedRequest, ParsedResponse, Usage
 from sightline.server import create_app
 from sightline.store import Call, Store
 
 NOW = calendar.timegm((2026, 10, 26, 15, 0, 0))
 DAY0 = calendar.timegm((2026, 10, 26, 0, 0, 0))
+NOW2 = calendar.timegm((2026, 10, 26, 2, 0, 0))     # 02:00 UTC = previous calendar day in America/*
 
 
 @pytest.fixture
@@ -35,6 +39,9 @@ def test_tag_tokens_today_by_prefix(store):
     assert store.tag_tokens_since("foundry/", DAY0) == 800          # yesterday, foundryX/ and untagged excluded
     assert store.tag_tokens_since("other/", DAY0) == 5000
     assert store.tag_tokens_since("foundry%", DAY0) == 0             # LIKE wildcards are literal, not patterns
+    assert store.tag_tokens_since("foundry_", DAY0) == 0
+    store.insert(Call(ts=DAY0 + 60, provider="ollama", model="m", tag="a*b/x", input_tokens=7, output_tokens=0))
+    assert store.tag_tokens_since("a*", DAY0) == 7 and store.tag_tokens_since("a[", DAY0) == 0   # not GLOB either
 
 
 def test_reason_when_over(store):
@@ -70,3 +77,45 @@ def test_engine_records_reason_without_blocking():
     src = inspect.getsource(engine.SightlineAddon._finish)
     assert "budgets.budget_reason(" in src and "call.reasons" in src
     assert "blocked" not in src.split("budgets.budget_reason(")[1].split("\n")[0]
+
+
+
+@pytest.fixture
+def la_tz(monkeypatch):
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    time.tzset()
+    yield
+    monkeypatch.delenv("TZ")
+    time.tzset()
+
+
+def test_day_start_is_utc_not_local(la_tz):
+    assert budgets.day_start(NOW2) == DAY0
+    assert budgets.day_start(DAY0) == DAY0 and budgets.day_start(DAY0 - 1) == DAY0 - 86400
+
+
+def _addon(tmp_path, b):
+    store = Store(tmp_path / "t.db")
+    return SightlineAddon(Settings(home=tmp_path, budgets=b), store, Policy(), load_table(), Bus()), store
+
+
+def _finish(addon, tag, tokens=100):
+    call = Call(ts=NOW2, provider="ollama", model="m", tag=tag, status=200, path="/api/chat")
+    addon._finish(call, ParsedRequest(provider="ollama"), ParsedResponse(model="m", usage=Usage(
+        input_tokens=tokens, output_tokens=0, source="reported")))
+
+
+def test_engine_warns_and_never_blocks(tmp_path):
+    addon, store = _addon(tmp_path, {"foundry/": 150})
+    _finish(addon, "foundry/a")
+    _finish(addon, "foundry/b")
+    rows = sorted(store.list(limit=10), key=lambda r: r["id"])
+    assert [store.get(r["id"])["reasons"] for r in rows] == [[], ["budget:foundry/"]]
+    assert all(r["action"] == "allowed" for r in rows)
+
+
+def test_engine_budget_errors_never_break_insert(tmp_path, monkeypatch):
+    addon, store = _addon(tmp_path, {"foundry/": 1})
+    monkeypatch.setattr(store, "tag_tokens_since", lambda *a: 1 / 0)
+    _finish(addon, "foundry/a")
+    assert len(store.list(limit=10)) == 1
