@@ -60,6 +60,11 @@ class Settings:
     # The context window the allowed (lane) models are loaded with. Any other num_ctx forces Ollama to reload the
     # model and drop its prompt cache, so the listener pins it. keep_alive is stripped for the same reason.
     pin_num_ctx: int | None = 262144
+    # Per-tag daily token ceilings: tag prefix -> max input+output tokens per UTC day. Empty = no budget.
+    budgets: dict[str, int] = field(default_factory=dict)
+    # "warn" is the only mode: a budget never blocks (caller tags are unauthenticated); it records a
+    # `budget:<prefix>` reason that dashboards and foundry alert on.
+    budget_mode: str = "warn"
 
     @property
     def db_path(self) -> Path:

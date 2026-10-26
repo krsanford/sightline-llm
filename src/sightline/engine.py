@@ -22,7 +22,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from mitmproxy import http
 
-from . import providers
+from . import budgets, providers
 from .config import GATEWAY_ROUTES, Settings
 from .policy import Policy, redact_text
 from .pricing import PriceTable
@@ -240,6 +240,16 @@ class SightlineAddon:
         call.response = _store_text(resp.text)
         if resp.error and not call.error:
             call.error = resp.error[:500]
+        # WARN-mode per-tag budget: record a `budget:<prefix>` reason but never block (tags unauthenticated).
+        if self.settings.budgets:
+            try:
+                reason = budgets.budget_reason(
+                    self.settings.budgets, self.store, call.tag,
+                    (call.input_tokens or 0) + (call.output_tokens or 0), call.ts)
+                if reason is not None:
+                    call.reasons.append(reason)
+            except Exception:  # noqa: BLE001 - a budget error must never prevent the insert
+                log.exception("budget check failed")
         try:
             call_id = self.store.insert(call)
         except Exception:  # noqa: BLE001 - never break the client's request over bookkeeping

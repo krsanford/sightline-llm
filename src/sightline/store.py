@@ -182,6 +182,20 @@ class Store:
                     findings[item["kind"]] = findings.get(item["kind"], 0) + item.get("count", 1)
         return {"by_model": by_model, "by_hour": by_hour, "by_client": by_client, "findings": findings}
 
+    def tag_tokens_since(self, prefix: str, since: float) -> int:
+        """Sum of input+output tokens for calls with ts >= since whose tag starts with ``prefix``.
+
+        The prefix is matched literally with ``substr(tag, 1, len(prefix)) = prefix`` -- never LIKE,
+        whose ``%`` and ``_`` are wildcards, and never GLOB. Untagged calls never match.
+        """
+        with self._lock:
+            r = self.db.execute(
+                "SELECT COALESCE(SUM(COALESCE(input_tokens,0)+COALESCE(output_tokens,0)),0) t FROM calls "
+                "WHERE ts >= ? AND tag IS NOT NULL AND substr(tag, 1, ?) = ?",
+                (since, len(prefix), prefix),
+            ).fetchone()
+        return int(r[0]) if r else 0
+
     def purge(self, body_days: int, metadata_days: int, now: float | None = None) -> tuple[int, int]:
         now = now or time.time()
         with self._lock:

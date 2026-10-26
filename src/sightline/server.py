@@ -92,6 +92,8 @@ def create_app(settings: Settings, store: Store, policy: Policy, bus: Bus) -> Fa
             "policy": policy.to_dict(),
             "allow_models": sorted(settings.allow_models),
             "pin_num_ctx": settings.pin_num_ctx,
+            "budgets": settings.budgets,
+            "budget_mode": settings.budget_mode,
             "capture_bodies": settings.capture_bodies,
             "retention": {"bodies_days": settings.body_retention_days,
                           "metadata_days": settings.metadata_retention_days},
