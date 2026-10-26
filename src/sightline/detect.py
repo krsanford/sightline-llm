@@ -78,6 +78,12 @@ _PEM = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PR
 _EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 
 # US phone in common formats, e.g. (415) 555-0132 / 415-555-0132 / +1 415 555 0132.
+# A match is only accepted when the 10-digit number is *structured*: it must carry
+# at least one separator (hyphen, space, dot, or parentheses) or a leading "+1"
+# prefix. This keeps Unix timestamps and other bare 10-digit numbers
+# (``1792988618``, ``4155550132``) from being mistaken for phone numbers. The
+# separator/prefix check lives in ``_phone_ok`` because it needs to inspect the
+# matched span as a whole; the regex below simply captures every candidate shape.
 _PHONE = re.compile(
     r"(?<!\d)(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)"
 )
@@ -138,7 +144,25 @@ def _passes_filters(kind: str, value: str) -> bool:
         return 13 <= len(digits) <= 19 and _luhn_ok(digits)
     if kind == "ssn":
         return _ssn_ok(value)
+    if kind == "phone":
+        return _phone_ok(value)
     return True
+
+
+def _phone_ok(value: str) -> bool:
+    """Return True when ``value`` is a *structured* US phone number.
+
+    A bare 10-digit run (no separators, no country code) is rejected so that Unix
+    timestamps and other numeric ids are not mistaken for phone numbers. A valid
+    match must contain at least one separator (``-``, space, ``.`` or parentheses)
+    inside the number, or begin with a ``+1`` country-code prefix. The full span
+    -- area code included -- is kept as the single finding.
+    """
+    stripped = value.lstrip("+")
+    has_parens = "(" in stripped
+    has_separator = any(ch in stripped for ch in "-. \t")
+    has_country_code = value.startswith("+1")
+    return has_parens or has_separator or has_country_code
 
 
 def _ssn_ok(value: str) -> bool:
