@@ -1,3 +1,7 @@
+# Provider reference
+
+_Supported providers, as implemented in `src/sightline/providers/`. Written by the foundry swarm; Gemini and limitations added by the integrator._
+
 ## OpenAI (including Azure)
 
 Supports OpenAI Chat Completions, Responses API, and Azure OpenAI deployments.
@@ -8,7 +12,7 @@ Supports OpenAI Chat Completions, Responses API, and Azure OpenAI deployments.
 | **Endpoints** | `chat` (/chat/completions), `responses` (/responses), `embeddings` (/embeddings), `models` (/models) |
 | **Streaming** | Auto-detects Chat Completions vs. Responses API via event names and JSON `type`. |
 | **Token Usage** | `input_tokens` is pulled from `prompt_tokens` or `input_tokens`. `cache_read_tokens` is from `input_tokens_details` or `prompt_tokens_details`. `reasoning_tokens` is pulled from `output_tokens_details`. |
-| **Limitations** | |
+| **Limitations** | Streaming Chat Completions only carry usage when the client sets `stream_options.include_usage`; otherwise the call is recorded with "usage ?" and no cost. Realtime (WebSocket) and Batch APIs are not parsed. |
 
 ## Anthropic
 
@@ -20,7 +24,19 @@ Supports the Anthropic Messages API.
 | **Endpoints** | `messages` (/v1/messages) |
 | **Streaming** | Parses SSE events like `message_start`, `content_block_delta`, and `message_delta`. |
 | **Token Usage** | `input_tokens` is a sum of `input_tokens` + `cache_read_input_tokens` + `cache_creation_input_tokens`. `output_tokens` is extracted from `message_delta` events. |
-| **Limitations** | |
+| **Limitations** | Only `/v1/messages` is matched; token counting (`/v1/messages/count_tokens`) and Message Batches are recorded at host level only. Thinking blocks are not counted separately. |
+
+## Google Gemini
+
+Supports the Gemini API (`generativelanguage.googleapis.com`).
+
+| Feature | Details |
+| --- | --- |
+| **Hosts Matched** | `generativelanguage.googleapis.com` |
+| **Endpoints** | `generate` (`/models/<id>:generateContent` and `:streamGenerateContent`) |
+| **Streaming** | Decided by the URL method, not the body. SSE chunks each may carry `usageMetadata`; the last one wins. |
+| **Token Usage** | `promptTokenCount` → input, `candidatesTokenCount` → output, `cachedContentTokenCount` → cache read, `thoughtsTokenCount` → reasoning. The model id comes from the URL path. |
+| **Limitations** | Vertex AI (`aiplatform.googleapis.com`) is not parsed. API keys passed as `?key=` are masked in the stored path. |
 
 ## Adding a Provider
 
